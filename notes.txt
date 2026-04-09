@@ -1,0 +1,14 @@
+ required attendance was weird
+ output was not always good.
+
+
+ if someone is part of flex during tuesday wednesday during the week then we should be able to just say they have those days off.
+
+ quest kids are completely out for 2 days then flex group for 2 of the 6 remaining sessions
+
+
+
+Other project:
+
+Seat Assignment: Group kids like (1 high academically with 1 low academically)
+

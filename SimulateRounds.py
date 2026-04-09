@@ -74,7 +74,7 @@ if __name__ == '__main__':
 
     run_simulation(students, groups_to_sizes, invalid_student_pairs,
                    round_sit_outs=round_sit_outs,
-                   debug_mode=True)
+                   debug_mode=False)
 
 
 

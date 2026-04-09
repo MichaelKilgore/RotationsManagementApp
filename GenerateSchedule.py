@@ -4,6 +4,7 @@ from typing import Sequence, cast
 from ortools.linear_solver import pywraplp
 import math
 
+# TODO: Could potentially add max_visits_allowed, limiting number of times a user can be part of a group
 @dataclass
 class Group:
     name: str
