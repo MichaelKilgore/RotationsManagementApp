@@ -48,9 +48,9 @@ def run_simulation(students: list[str], group_to_size: list[tuple[str, int]],
             _students[assignment.student_name].visits[assignment.group_name] += 1
             g_to_s[assignment.group_name].append(assignment.student_name)
 
-        print(f'round {r+1}:')
-        for key,val in sorted(g_to_s.items()):
-            print(f'  {key}: {val}')
+        # print(f'round {r+1}:')
+        # for key,val in sorted(g_to_s.items()):
+        #     print(f'  {key}: {val}')
 
     if debug_mode:
         print('')

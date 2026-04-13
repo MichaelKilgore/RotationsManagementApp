@@ -2,15 +2,42 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-import os, json
+import os
+import sys
+from pathlib import Path
+
+
+def _app_data_dir() -> Path:
+    """Writable directory for token + credentials, works both dev and bundled."""
+    d = Path.home() / '.rotations_management_app'
+    d.mkdir(exist_ok=True)
+    return d
+
+
+def _credentials_path() -> Path:
+    """
+    Find credentials.json. Checks (in order):
+      1. ~/.rotations_management_app/credentials.json  (user-placed copy)
+      2. Next to the bundled executable (PyInstaller sys._MEIPASS)
+      3. Next to this source file (dev mode)
+    """
+    user_path = _app_data_dir() / 'credentials.json'
+    if user_path.exists():
+        return user_path
+    if getattr(sys, 'frozen', False):
+        bundle_path = Path(sys._MEIPASS) / 'credentials.json'  # type: ignore[attr-defined]
+        if bundle_path.exists():
+            return bundle_path
+    return Path(__file__).parent / 'credentials.json'
+
 
 def init_auth():
     SCOPES = [
         'https://www.googleapis.com/auth/presentations',
         'https://www.googleapis.com/auth/drive'
     ]
-    TOKEN_FILE = 'token.json'
-    CREDS_FILE = 'credentials.json'  # Downloaded from Google Cloud Console
+    TOKEN_FILE = str(_app_data_dir() / 'token.json')
+    CREDS_FILE = str(_credentials_path())
 
     creds = None
 
@@ -62,4 +89,5 @@ def create_google_slides(template_slide_id: str, replacements: dict) -> None:
 
 
 
-create_google_slides('1oQ8zrRGx5s-LbDCpxb8FOg0e62y_bsJ_OOQo1np555Y', {'{{test}}': 'asdf'})
+if __name__ == '__main__':
+    create_google_slides('1oQ8zrRGx5s-LbDCpxb8FOg0e62y_bsJ_OOQo1np555Y', {'{{test}}': 'asdf'})
