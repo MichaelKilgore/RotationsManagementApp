@@ -6,6 +6,7 @@ import io
 import json
 from pathlib import Path
 from ui_utils.dynamic_table import DynamicTable
+from ui_utils.sit_outs_table import SitOutsTable
 
 STATE_FILE = Path.home() / '.rotations_management_app.json'
 
@@ -13,83 +14,6 @@ from SimulateRounds import run_simulation
 from RoundsPresentation import RoundsPresentation
 from CreateGoogleSlides import create_google_slides
 
-
-# ── helpers ──────────────────────────────────────────────────────────────────
-
-def parse_name_list(text: str) -> list[str]:
-    """Split a newline- or comma-separated string into a clean list of names."""
-    names = []
-    for token in text.replace('\n', ',').split(','):
-        t = token.strip()
-        if t:
-            names.append(t)
-    return names
-
-
-# ── sit-outs table ───────────────────────────────────────────────────────────
-
-class SitOutsTable(tk.Frame):
-    """Table where each row is a student + checkboxes for the days they sit out."""
-    DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
-
-    def __init__(self, parent, **kwargs):
-        super().__init__(parent, **kwargs)
-        self._rows: list[tuple[tk.Entry, list[tk.BooleanVar], tk.Frame]] = []
-
-        header = tk.Frame(self)
-        header.pack(fill='x')
-        tk.Label(header, text='Student Name', width=20, anchor='w',
-                 font=('Helvetica', 10, 'bold')).grid(row=0, column=0, padx=4)
-        for i, day in enumerate(self.DAYS):
-            tk.Label(header, text=day, width=5,
-                     font=('Helvetica', 10, 'bold')).grid(row=0, column=i + 1)
-
-        self.rows_frame = tk.Frame(self)
-        self.rows_frame.pack(fill='x')
-
-        tk.Button(self, text='+ Add Student', command=self.add_row).pack(anchor='w', pady=(4, 0))
-
-    def add_row(self, student: str = '', absent_days: list[str] | None = None):
-        frame = tk.Frame(self.rows_frame)
-        frame.pack(fill='x', pady=1)
-
-        name_entry = tk.Entry(frame, width=20)
-        name_entry.grid(row=0, column=0, padx=4)
-        if student:
-            name_entry.insert(0, student)
-
-        day_vars: list[tk.BooleanVar] = []
-        for i, day in enumerate(self.DAYS):
-            var = tk.BooleanVar(value=absent_days is not None and day in absent_days)
-            tk.Checkbutton(frame, variable=var).grid(row=0, column=i + 1)
-            day_vars.append(var)
-
-        tk.Button(frame, text='✕', width=3,
-                  command=lambda f=frame: self._remove_row(f)).grid(
-                  row=0, column=len(self.DAYS) + 1, padx=4)
-
-        self._rows.append((name_entry, day_vars, frame))
-
-    def _remove_row(self, frame: tk.Frame):
-        self._rows = [(n, d, f) for n, d, f in self._rows if f is not frame]
-        frame.destroy()
-
-    def get_sit_outs(self, num_rounds: int, days_per_week: int) -> list[list[str]]:
-        """Compute round_sit_outs by mapping each round to its day-of-week."""
-        active_days = self.DAYS[:days_per_week]
-        schedule: list[tuple[str, set[str]]] = []
-        for name_entry, day_vars, _ in self._rows:
-            name = name_entry.get().strip()
-            if name:
-                absent = {self.DAYS[i] for i, v in enumerate(day_vars)
-                          if v.get() and i < days_per_week}
-                if absent:
-                    schedule.append((name, absent))
-
-        return [
-            [name for name, absent in schedule if active_days[r % days_per_week] in absent]
-            for r in range(num_rounds)
-        ]
 
 
 # ── main app ──────────────────────────────────────────────────────────────────
@@ -145,9 +69,9 @@ class App(tk.Tk):
         tk.Entry(top_row, textvariable=self.days_per_week_var, width=6).grid(row=2, column=1, sticky='w', pady=(6, 0))
 
         # ── Students ──────────────────────────────────────────────────────────
-        students_frame = self._section_frame('Students  (one per line, or comma-separated)')
-        self.students_text = scrolledtext.ScrolledText(students_frame, height=5, wrap='word')
-        self.students_text.pack(fill='x')
+        students_frame = self._section_frame('Students')
+        self.students_table = DynamicTable(students_frame, ['Student Name'])
+        self.students_table.pack(fill='x')
 
         # ── Groups ────────────────────────────────────────────────────────────
         groups_frame = self._section_frame('Groups  (name + max size)')
@@ -199,7 +123,11 @@ class App(tk.Tk):
         students = ['marcy', 'perry', 'hamlet', 'saint nick', 'thadeus', 'maxwell',
                     'zeus', 'james', 'victor', 'kobe', 'danny', 'laquintes', 'max',
                     'sam', 'achilles', 'lincoln log', 'hermes', 'poseidon']
-        self.students_text.insert('1.0', '\n'.join(students))
+        for row_entries in list(self.students_table.rows):
+            row_entries[0].master.destroy()
+        self.students_table.rows.clear()
+        for name in students:
+            self.students_table.add_row([name])
 
         # Remove the default blank row and add real groups
         for row_entries in list(self.groups_table.rows):
@@ -229,7 +157,7 @@ class App(tk.Tk):
             'template_id': self.template_id_var.get(),
             'num_rounds': self.num_rounds_var.get(),
             'days_per_week': self.days_per_week_var.get(),
-            'students': self.students_text.get('1.0', 'end').rstrip('\n'),
+            'students': [row[0] for row in self.students_table.get_values()],
             'groups': self.groups_table.get_values(),
             'invalid_pairs': self.pairs_table.get_values(),
             'sit_outs': [
@@ -255,8 +183,11 @@ class App(tk.Tk):
         self.num_rounds_var.set(state.get('num_rounds', '12'))
         self.days_per_week_var.set(state.get('days_per_week', '4'))
 
-        self.students_text.delete('1.0', 'end')
-        self.students_text.insert('1.0', state.get('students', ''))
+        for row_entries in list(self.students_table.rows):
+            row_entries[0].master.destroy()
+        self.students_table.rows.clear()
+        for name in state.get('students', []):
+            self.students_table.add_row([name])
 
         for row_entries in list(self.groups_table.rows):
             row_entries[0].master.destroy()
@@ -283,7 +214,7 @@ class App(tk.Tk):
     # ── Parsing ───────────────────────────────────────────────────────────────
 
     def _parse_inputs(self):
-        students = parse_name_list(self.students_text.get('1.0', 'end'))
+        students = [row[0] for row in self.students_table.get_values() if row[0]]
 
         groups_raw = self.groups_table.get_values()
         groups_to_sizes = []
