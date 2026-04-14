@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from ui_utils.dynamic_table import DynamicTable
 from ui_utils.sit_outs_table import SitOutsTable
+from ui_utils.theme import COLORS, FONTS, bind_hover, bind_text_hover
 
 STATE_FILE = Path.home() / '.rotations_management_app.json'
 
@@ -22,8 +23,18 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title('Rotations Management App')
-        self.geometry('820x900')
+        self.geometry('860x920')
         self.resizable(True, True)
+        self.configure(bg=COLORS['bg'])
+
+        # Use the clam ttk theme for cleaner scrollbars and ttk widgets
+        style = ttk.Style(self)
+        style.theme_use('clam')
+        style.configure('TScrollbar',
+                        background=COLORS['divider'],
+                        troughcolor=COLORS['bg'],
+                        borderwidth=0,
+                        arrowcolor=COLORS['text_muted'])
 
         self._rounds_result = None  # stored after run_simulation
 
@@ -35,14 +46,14 @@ class App(tk.Tk):
     # ── UI construction ───────────────────────────────────────────────────────
 
     def _build_ui(self):
-        # Scrollable canvas so everything fits
-        canvas = tk.Canvas(self, borderwidth=0)
+        # Scrollable canvas
+        canvas = tk.Canvas(self, borderwidth=0, highlightthickness=0, bg=COLORS['bg'])
         scrollbar = ttk.Scrollbar(self, orient='vertical', command=canvas.yview)
         canvas.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side='right', fill='y')
         canvas.pack(side='left', fill='both', expand=True)
 
-        self.main_frame = tk.Frame(canvas, padx=16, pady=16)
+        self.main_frame = tk.Frame(canvas, bg=COLORS['bg'], padx=24, pady=20)
         self.main_frame.bind('<Configure>',
                              lambda e: canvas.configure(scrollregion=canvas.bbox('all')))
         canvas_window = canvas.create_window((0, 0), window=self.main_frame, anchor='nw')
@@ -51,22 +62,40 @@ class App(tk.Tk):
         # Mouse-wheel scrolling
         canvas.bind_all('<MouseWheel>', lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), 'units'))
 
+        # ── App title ─────────────────────────────────────────────────────────
+        tk.Label(self.main_frame, text='Rotations Management',
+                 font=FONTS['h1'], bg=COLORS['bg'], fg=COLORS['primary']).pack(anchor='w', pady=(0, 4))
+        tk.Frame(self.main_frame, bg=COLORS['divider'], height=1).pack(fill='x', pady=(0, 12))
+
         # ── Configuration ─────────────────────────────────────────────────────
         cfg_frame = self._section_frame('Configuration')
-        top_row = tk.Frame(cfg_frame)
+        top_row = tk.Frame(cfg_frame, bg=COLORS['card'])
         top_row.pack(fill='x', pady=(0, 4))
 
-        tk.Label(top_row, text='Template Slide ID:', anchor='w').grid(row=0, column=0, sticky='w', padx=(0, 8))
         self.template_id_var = tk.StringVar()
-        tk.Entry(top_row, textvariable=self.template_id_var, width=50).grid(row=0, column=1, sticky='w')
-
-        tk.Label(top_row, text='Number of Rounds:', anchor='w').grid(row=1, column=0, sticky='w', padx=(0, 8), pady=(6, 0))
         self.num_rounds_var = tk.StringVar(value='12')
-        tk.Entry(top_row, textvariable=self.num_rounds_var, width=6).grid(row=1, column=1, sticky='w', pady=(6, 0))
-
-        tk.Label(top_row, text='Days per Week:', anchor='w').grid(row=2, column=0, sticky='w', padx=(0, 8), pady=(6, 0))
         self.days_per_week_var = tk.StringVar(value='4')
-        tk.Entry(top_row, textvariable=self.days_per_week_var, width=6).grid(row=2, column=1, sticky='w', pady=(6, 0))
+
+        fields = [
+            ('Template Slide ID:', self.template_id_var, 50),
+            ('Number of Rounds:',  self.num_rounds_var,  6),
+            ('Days per Week:',     self.days_per_week_var, 6),
+        ]
+        for row_idx, (label, var, width) in enumerate(fields):
+            pady = (0, 0) if row_idx == 0 else (6, 0)
+            tk.Label(top_row, text=label, anchor='w',
+                     bg=COLORS['card'], fg=COLORS['text'],
+                     font=FONTS['body']).grid(row=row_idx, column=0, sticky='w',
+                                              padx=(0, 12), pady=pady)
+            tk.Entry(top_row, textvariable=var, width=width,
+                     bg=COLORS['entry_bg'], fg=COLORS['text'],
+                     relief='flat',
+                     highlightthickness=1,
+                     highlightbackground=COLORS['entry_border'],
+                     highlightcolor=COLORS['primary'],
+                     font=FONTS['body'],
+                     insertbackground=COLORS['primary']).grid(row=row_idx, column=1,
+                                                              sticky='w', pady=pady)
 
         # ── Students ──────────────────────────────────────────────────────────
         students_frame = self._section_frame('Students')
@@ -88,31 +117,47 @@ class App(tk.Tk):
         self.sitouts_table = SitOutsTable(sitouts_frame)
         self.sitouts_table.pack(fill='x')
 
-        # ── Buttons ───────────────────────────────────────────────────────────
-        btn_frame = tk.Frame(self.main_frame)
-        btn_frame.pack(pady=12, anchor='w')
+        # ── Action buttons ────────────────────────────────────────────────────
+        btn_frame = tk.Frame(self.main_frame, bg=COLORS['bg'])
+        btn_frame.pack(pady=20, anchor='w')
 
-        self.run_btn = tk.Button(btn_frame, text='Run Simulation', width=18,
-                                 bg='#4a90d9', fg='black', font=('Helvetica', 11, 'bold'),
-                                 command=self._on_run_simulation)
-        self.run_btn.pack(side='left', padx=(0, 10))
+        self.run_btn = tk.Button(
+            btn_frame, text='Run Simulation',
+            bg=COLORS['primary'], fg='white',
+            font=FONTS['h2'], relief='flat', bd=0,
+            padx=20, pady=10, cursor='hand2',
+            command=self._on_run_simulation)
+        self.run_btn.pack(side='left', padx=(0, 12))
+        bind_hover(self.run_btn, COLORS['primary'], COLORS['primary_active'])
 
-        self.slides_btn = tk.Button(btn_frame, text='Create Google Slides', width=22,
-                                    bg='#34a853', fg='black', font=('Helvetica', 11, 'bold'),
-                                    state='disabled', command=self._on_create_slides)
+        self.slides_btn = tk.Button(
+            btn_frame, text='Create Google Slides',
+            bg=COLORS['success'], fg='white',
+            font=FONTS['h2'], relief='flat', bd=0,
+            padx=20, pady=10, cursor='hand2',
+            state='disabled', command=self._on_create_slides)
         self.slides_btn.pack(side='left')
+        bind_hover(self.slides_btn, COLORS['success'], COLORS['success_active'])
 
         # ── Output log ────────────────────────────────────────────────────────
         output_frame = self._section_frame('Output')
-        self.log_text = scrolledtext.ScrolledText(output_frame, height=10, wrap='word',
-                                                  state='disabled', bg='#1e1e1e', fg='#d4d4d4',
-                                                  font=('Courier', 10))
+        self.log_text = scrolledtext.ScrolledText(
+            output_frame, height=10, wrap='word',
+            state='disabled',
+            bg=COLORS['log_bg'], fg=COLORS['log_fg'],
+            font=FONTS['mono'],
+            relief='flat', bd=0,
+            padx=10, pady=8,
+            insertbackground='white')
         self.log_text.pack(fill='x')
 
     def _section_frame(self, title: str) -> tk.Frame:
-        lf = tk.LabelFrame(self.main_frame, text=title, font=('Helvetica', 10, 'bold'),
-                           padx=10, pady=8, bd=2, relief='groove')
-        lf.pack(fill='x', pady=(8, 0))
+        lf = tk.LabelFrame(self.main_frame, text=f'  {title}  ',
+                           font=FONTS['h2'],
+                           bg=COLORS['card'], fg=COLORS['primary'],
+                           padx=0, pady=0,
+                           bd=1, relief='groove')
+        lf.pack(fill='x', pady=(0, 10))
         return lf
 
     # ── Default values ────────────────────────────────────────────────────────
@@ -146,7 +191,7 @@ class App(tk.Tk):
                      ('james', 'poseidon'), ('perry', 'danny')]:
             self.pairs_table.add_row([a, b])
 
-        # Example sit-outs: add students who are always absent on specific days
+        # Example sit-outs
         for student, days in [('thadeus', ['Tue', 'Wed']), ('laquintes', ['Tue', 'Wed'])]:
             self.sitouts_table.add_row(student, days)
 
@@ -273,12 +318,11 @@ class App(tk.Tk):
 
         self._rounds_result = None
         self.slides_btn.configure(state='disabled')
-        self.run_btn.configure(state='disabled', text='Running…')
+        self.run_btn.configure(state='disabled', text='Running...')
         self._clear_log()
-        self._log('Starting simulation…\n')
+        self._log('Starting simulation...\n')
 
         def worker():
-            # Capture stdout from run_simulation
             buf = io.StringIO()
             old_stdout = sys.stdout
             sys.stdout = buf
@@ -315,13 +359,12 @@ class App(tk.Tk):
             messagebox.showerror('Input Error', str(e))
             return
 
-        self.slides_btn.configure(state='disabled', text='Creating…')
-        self._log('\nBuilding replacements and creating Google Slides…')
+        self.slides_btn.configure(state='disabled', text='Creating...')
+        self._log('\nBuilding replacements and creating Google Slides...')
 
         def worker():
             try:
                 replacements = RoundsPresentation().build_replacements(self._rounds_result)
-                # Capture the printed URL
                 buf = io.StringIO()
                 old_stdout = sys.stdout
                 sys.stdout = buf
