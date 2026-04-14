@@ -176,7 +176,8 @@ class App(tk.Tk):
         self.main_frame = tk.Frame(canvas, padx=16, pady=16)
         self.main_frame.bind('<Configure>',
                              lambda e: canvas.configure(scrollregion=canvas.bbox('all')))
-        canvas.create_window((0, 0), window=self.main_frame, anchor='nw')
+        canvas_window = canvas.create_window((0, 0), window=self.main_frame, anchor='nw')
+        canvas.bind('<Configure>', lambda e: canvas.itemconfig(canvas_window, width=e.width))
 
         # Mouse-wheel scrolling
         canvas.bind_all('<MouseWheel>', lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), 'units'))
@@ -196,8 +197,6 @@ class App(tk.Tk):
 
         tk.Label(top_row, text='Days per Week:', anchor='w').grid(row=2, column=0, sticky='w', padx=(0, 8), pady=(6, 0))
         self.days_per_week_var = tk.StringVar(value='4')
-        tk.Label(top_row, text='(Mon=round 1, Tue=round 2, … repeating each week)',
-                 fg='gray').grid(row=2, column=2, sticky='w', padx=(8, 0), pady=(6, 0))
         tk.Entry(top_row, textvariable=self.days_per_week_var, width=6).grid(row=2, column=1, sticky='w', pady=(6, 0))
 
         # ── Students ──────────────────────────────────────────────────────────
